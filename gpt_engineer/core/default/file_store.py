@@ -17,7 +17,7 @@ class FileStore:
 
     def upload(self, files: FilesDict):
         for name, content in files.items():
-            path = self.working_dir / name
+            path = self.working_dir / name.strip()
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path, "w") as f:
                 f.write(content)

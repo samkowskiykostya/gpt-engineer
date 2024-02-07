@@ -176,6 +176,32 @@ def clarified_gen(
     return files_dict
 
 
+def question_gen(
+    ai: AI,
+    prompt: str,
+    files_dict,
+) -> FilesDict:
+    user_input = prompt
+    messages = []
+    while True:
+        print()
+        print()
+        print("   User question:")
+        print()
+        user_input = input("")
+        print()
+        print("   AI:")
+        print()
+        messages.append(user_input)
+        print()
+        if user_input:
+            messages: List[Message] = [SystemMessage(content=files_dict.to_chat())]
+            messages.append(SystemMessage(content=user_input))
+
+            messages = ai.next(messages, step_name=curr_fn())
+            msg = messages[-1].content.strip()
+
+
 def lite_gen(
     ai: AI, prompt: str, memory: BaseMemory, preprompts_holder: PrepromptsHolder
 ) -> FilesDict:

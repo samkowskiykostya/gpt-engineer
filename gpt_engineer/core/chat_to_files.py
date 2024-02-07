@@ -129,15 +129,20 @@ def parse_edits(chat: str):
 
         filename = lines.pop(0)
         text = "\n".join(lines)
-        splits = text.split(DIVIDER)
-        if len(splits) != 2:
-            raise ValueError(f"Could not parse following text as code edit: \n{text}")
-        before, after = splits
+        # splits = text.split(DIVIDER)
+        all_edits = []
+        checks = [HEAD + a for a in text.split(HEAD) if a]
+        for check in checks:
+            splits = check.split(DIVIDER)
+            if len(splits) != 2:
+                raise ValueError(f"Could not parse following text as code edit: \n{text}")
+            before, after = splits
 
-        before = before.replace(HEAD, "").strip()
-        after = after.replace(UPDATE, "").strip()
+            before = before.replace(HEAD, "").strip()
+            after = after.replace(UPDATE, "").strip()
 
-        return Edit(filename, before, after)
+            all_edits.append(Edit(filename, before, after))
+        return all_edits
 
     edits = []
     current_edit = []
@@ -145,7 +150,7 @@ def parse_edits(chat: str):
 
     for line in chat.split("\n"):
         if line.startswith("```") and in_fence:
-            edits.append(parse_one_edit(current_edit))
+            edits += parse_one_edit(current_edit)
             current_edit = []
             in_fence = False
             continue

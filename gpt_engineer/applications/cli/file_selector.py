@@ -29,6 +29,7 @@ import toml
 from gpt_engineer.core.default.disk_memory import DiskMemory
 from gpt_engineer.core.default.paths import metadata_path
 from gpt_engineer.core.files_dict import FilesDict
+import pathspec
 
 
 class FileSelector:
@@ -46,12 +47,12 @@ class FileSelector:
         self.metadata_db = DiskMemory(metadata_path(self.project_path))
         self.toml_path = self.metadata_db.path / self.FILE_LIST_NAME
 
-    def ask_for_files(self) -> FilesDict:
+    def ask_for_files(self, skip_files) -> FilesDict:
         """
         Asks the user to select files for the purpose of context improvement.
         It supports selection from the terminal or using a previously saved list.
         """
-        if os.getenv("GPTE_TEST_MODE"):
+        if os.getenv("GPTE_TEST_MODE") or skip_files:
             # In test mode, retrieve files from a predefined TOML configuration
             assert self.FILE_LIST_NAME in self.metadata_db
             selected_files = self.get_files_from_toml(self.project_path, self.toml_path)
@@ -233,6 +234,25 @@ class FileSelector:
             # If you want to update other properties of existing files, you can do so here
 
         return existing_files
+    
+    def load_gitignore_specs(self, base_path):
+        """
+        Load and parse .gitignore file, returning a PathSpec object
+        """
+        gitignore_path = os.path.join(base_path, ".gitignore")
+        if not os.path.exists(gitignore_path):
+            return None
+
+        with open(gitignore_path, "r") as file:
+            spec = pathspec.PathSpec.from_lines("gitwildmatch", file)
+        patterns = []
+        for p in spec.patterns:
+            pattern = p.pattern.strip()
+            p.pattern = pattern
+            if pattern and not pattern.startswith("#"):
+                patterns.append(p)
+        spec.patterns = patterns
+        return spec
 
     def get_current_files(self, project_path: Union[str, Path]) -> list[str]:
         """
@@ -243,6 +263,7 @@ class FileSelector:
         project_path = Path(
             project_path
         ).resolve()  # Ensure path is absolute and resolved
+        ignore_spec = self.load_gitignore_specs(project_path)
 
         for path in project_path.glob("**/*"):  # Recursively list all files
             if path.is_file():
@@ -252,6 +273,8 @@ class FileSelector:
                 if any(part.startswith(".") for part in parts):
                     continue  # Skip hidden fileso
                 if any(part in self.IGNORE_FOLDERS for part in parts):
+                    continue
+                if ignore_spec and ignore_spec.match_file(relpath):
                     continue
 
                 all_files.append(str(relpath))

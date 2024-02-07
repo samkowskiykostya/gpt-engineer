@@ -24,6 +24,8 @@ from gpt_engineer.core.default.paths import (
 )
 from gpt_engineer.core.files_dict import FilesDict
 from gpt_engineer.core.preprompts_holder import PrepromptsHolder
+import subprocess
+from datetime import datetime
 
 
 def curr_fn() -> str:
@@ -155,7 +157,17 @@ def improve(
     files_dict: FilesDict,
     memory: BaseMemory,
     preprompts_holder: PrepromptsHolder,
+    commit: bool,
 ) -> FilesDict:
+    if commit:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        working_dir = str(memory.path.parents[1])
+        res = subprocess.run(["git", "commit", "-m", timestamp], cwd=working_dir)
+        if res.returncode != 0:
+            # subprocess.run(["git", "init"], cwd=working_dir)
+            subprocess.run(["git", "add", "."], cwd=working_dir)
+            subprocess.run(["git", "commit", "-m", timestamp], cwd=working_dir)
+            
     preprompts = preprompts_holder.get_preprompts()
     messages = [
         SystemMessage(content=setup_sys_prompt_existing_code(preprompts)),

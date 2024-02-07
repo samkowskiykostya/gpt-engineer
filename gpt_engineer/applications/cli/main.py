@@ -43,7 +43,8 @@ from gpt_engineer.core.default.file_store import FileStore
 from gpt_engineer.core.default.paths import PREPROMPTS_PATH, memory_path
 from gpt_engineer.core.default.steps import execute_entrypoint, gen_code, improve
 from gpt_engineer.core.preprompts_holder import PrepromptsHolder
-from gpt_engineer.tools.custom_steps import clarified_gen, lite_gen, self_heal
+from gpt_engineer.tools.custom_steps import clarified_gen, lite_gen, self_heal, question_gen
+from functools import partial
 
 app = typer.Typer()  # creates a CLI app
 
@@ -96,6 +97,24 @@ def main(
         "-i",
         help="Improve files_dict from existing project.",
     ),
+    skip_files: bool = typer.Option(
+        False,
+        "--skip_files",
+        "-sf",
+        help="Do not ask for files selection since no new ones were added.",
+    ),
+    commit: bool = typer.Option(
+        False,
+        "--commit",
+        "-com",
+        help="Commit current state of folder before proceeding with changes",
+    ),
+    question_mode: bool = typer.Option(
+        False,
+        "--question",
+        "-q",
+        help="Question mode - ask about project.",
+    ),
     lite_mode: bool = typer.Option(
         False,
         "--lite",
@@ -140,7 +159,7 @@ def main(
 
     if improve_mode:
         assert not (
-            clarify_mode or lite_mode
+            clarify_mode or lite_mode or question_mode
         ), "Clarify and lite mode are not active for improve mode"
 
     load_env_if_needed()
@@ -168,7 +187,7 @@ def main(
     else:
         execution_fn = execute_entrypoint
 
-    improve_fn = improve
+    improve_fn = partial(improve, commit=commit)
 
     preprompts_path = get_preprompts_path(use_custom_preprompts, Path(project_path))
     preprompts_holder = PrepromptsHolder(preprompts_path)
@@ -187,8 +206,11 @@ def main(
     store = FileStore(project_path)
     if improve_mode:
         fileselector = FileSelector(project_path)
-        files_dict = fileselector.ask_for_files()
+        files_dict = fileselector.ask_for_files(skip_files=skip_files)
         files_dict = agent.improve(files_dict, prompt)
+    elif question_mode:
+        fileselector = FileSelector(project_path)
+        files_dict = fileselector.ask_for_files
     else:
         files_dict = agent.init(prompt)
         # collect user feedback if user consents
