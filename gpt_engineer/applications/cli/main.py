@@ -63,9 +63,7 @@ def load_prompt(input_repo: DiskMemory, improve_mode):
         return input_repo.get("prompt")
 
     if not improve_mode:
-        input_repo["prompt"] = input(
-            "\nWhat application do you want gpt-engineer to generate?\n"
-        )
+        input_repo["prompt"] = input("\nWhat application do you want gpt-engineer to generate?\n")
     else:
         input_repo["prompt"] = input("\nHow do you want to improve the application?\n")
     return input_repo.get("prompt")
@@ -210,7 +208,8 @@ def main(
         files_dict = agent.improve(files_dict, prompt)
     elif question_mode:
         fileselector = FileSelector(project_path)
-        files_dict = fileselector.ask_for_files
+        files_dict = fileselector.ask_for_files(skip_files)
+        question_gen(ai, prompt, files_dict)
     else:
         files_dict = agent.init(prompt)
         # collect user feedback if user consents
