@@ -138,6 +138,12 @@ def main(
         help="""Endpoint for your Azure OpenAI Service (https://xx.openai.azure.com).
             In that case, the given model is the deployment name chosen in the Azure AI Studio.""",
     ),
+    llm_endpoint: str = typer.Option(
+        "",
+        "--llm",
+        "-llm",
+        help="""Endpoint for your Local Service (http://127.0.0.1:8100)""",
+    ),
     use_custom_preprompts: bool = typer.Option(
         False,
         "--use-custom-preprompts",
@@ -153,7 +159,8 @@ def main(
     See README.md for more details.
     """
     logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
-    #
+    if len(llm_endpoint) == 1:
+        llm_endpoint = "http://127.0.0.1:8100"
 
     if improve_mode:
         assert not (
@@ -166,6 +173,7 @@ def main(
         model_name=model,
         temperature=temperature,
         azure_endpoint=azure_endpoint,
+        llm_endpoint=llm_endpoint,
     )
 
     path = Path(project_path)
@@ -213,8 +221,8 @@ def main(
     else:
         files_dict = agent.init(prompt)
         # collect user feedback if user consents
-        config = (code_gen_fn.__name__, execution_fn.__name__)
-        collect_and_send_human_review(prompt, model, temperature, config, agent.memory)
+        # config = (code_gen_fn.__name__, execution_fn.__name__)
+        # collect_and_send_human_review(prompt, model, temperature, config, agent.memory)
 
     store.upload(files_dict)
 

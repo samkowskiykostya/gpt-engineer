@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import requests
 
 from typing import List, Optional, Union
 
@@ -34,6 +35,7 @@ class AI:
         self,
         model_name="gpt-4-1106-preview",
         temperature=0.1,
+        llm_endpoint="",
         azure_endpoint="",
         streaming=True,
     ):
@@ -52,6 +54,7 @@ class AI:
         self.model_name = model_name
         self.streaming = streaming
         self.llm = self._create_chat_model()
+        self.llm_endpoint = llm_endpoint
         self.token_usage_log = TokenUsageLog(model_name)
 
         logger.debug(f"Using model {self.model_name}")
@@ -115,7 +118,20 @@ class AI:
 
         logger.debug(f"Creating a new chat completion: {messages}")
 
-        response = self.backoff_inference(messages)
+        if self.llm_endpoint:
+            payload = {
+                "messages": [{"content": a.content} for a in messages],
+            }
+            html_response = requests.post(
+                self.llm_endpoint + "/api/chat/completions", json=payload, timeout=10000
+            )
+            if html_response.status_code != 200:
+                raise Exception("Could not fetch local LLM: " + html_response.reason)
+            response_content = json.loads(json.loads(html_response.text))["content"]
+            print(response_content)
+            response = AIMessage(content=response_content)
+        else:
+            response = self.backoff_inference(messages)
 
         self.token_usage_log.update_log(
             messages=messages, answer=response.content, step_name=step_name
@@ -197,8 +213,7 @@ class AI:
         # Modify implicit is_chunk property to ALWAYS false
         # since Langchain's Message schema is stricter
         prevalidated_data = [
-            {**item, "tools": {**item.get("tools", {}), "is_chunk": False}}
-            for item in data
+            {**item, "tools": {**item.get("tools", {}), "is_chunk": False}} for item in data
         ]
         return list(messages_from_dict(prevalidated_data))  # type: ignore
 
@@ -220,7 +235,7 @@ class AI:
         """
         if self.azure_endpoint:
             return AzureChatOpenAI(
-                openai_api_base=self.azure_endpoint,
+                azure_endpoint=self.azure_endpoint,
                 openai_api_version=os.getenv("OPENAI_API_VERSION", "2023-05-15"),
                 deployment_name=self.model_name,
                 openai_api_type="azure",
